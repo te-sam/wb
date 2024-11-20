@@ -1,0 +1,5 @@
+aiogram==3.14.0
+beautifulsoup4==4.12.3
+requests==2.32.3
+python-dotenv==1.0.1
+selenium==4.26.1
