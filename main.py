@@ -5,16 +5,23 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
+from aiogram.types import InputMediaPhoto
+from aiogram.client.default import DefaultBotProperties
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from keyboards.keyboard import main_kb
+from keyboards.keyboard import main_kb, hastags_kb
 from parsing import get_post
 
 
 load_dotenv()
-bot = Bot(token=os.getenv("API_TOKEN"))
+if os.getenv("MODE") == "TEST":
+    bot = Bot(token=os.getenv("TEST_API_TOKEN"))
+    print(os.getenv("MODE"))
+else:
+    bot = Bot(token=os.getenv("API_TOKEN"))
+    print(os.getenv("MODE"))
 storage = MemoryStorage()
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -22,6 +29,7 @@ dp = Dispatcher(storage=MemoryStorage())
 class Form(StatesGroup):
     give_link = State()
     give_title = State()
+    give_hashtag = State()
     give_links = State()
 
 
@@ -54,15 +62,24 @@ async def make_post(message: types.Message, state: FSMContext):
     await state.clear()
 
 
-@dp.message(F.text == "Групповой пост")
+@dp.message(F.text == "Групповой пост (целиком)")
+@dp.message(F.text == "Групповой пост (только артикулы)")
 async def get_title(message: types.Message, state: FSMContext):
+    await state.update_data(type_group=message.text)
     await message.answer("Отправь заголовок, детка")
     await state.set_state(Form.give_title)
 
 
 @dp.message(Form.give_title)
-async def get_group_from_posts(message: types.Message, state: FSMContext):
+async def get_hashtag(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text)
+    await state.set_state(Form.give_hashtag)
+    await message.answer("Отправь хэштэг, если без хэштэга, отправь пустое сообщение", reply_markup=hastags_kb(message.from_user.id))
+
+
+@dp.message(Form.give_hashtag)
+async def get_group_from_posts(message: types.Message, state: FSMContext):
+    await state.update_data(hashtag=message.text)
     await state.set_state(Form.give_links)
     await message.answer("Отправь ссылки, крошка")
 
@@ -72,28 +89,35 @@ async def make_some_posts(message: types.Message, state: FSMContext):
     await state.update_data(links=message.text)
     data = await state.get_data()
     links = data['links'].split()
-    posts_text = f"{data['title']}\n\n"
+    posts_text = f"*{data['title']}*\n\n"
     image_links = []
     images = []
+
+    if data['hashtag'] == "Без хэштега":
+        hashtag = ""
+    else:
+        hashtag = data['hashtag'].replace("_", "\_")
 
     print(data['title'])
     print(links)
 
     for n, link in enumerate(links):
         post = get_post(link)
-        posts_text += f"{n+1}) {post['product_title']}\nЦена: {post['price']}\n*Артикул*: {post['link']}\n\n"
+        if data['type_group'] == "Групповой пост (целиком)":
+            posts_text += f"{n+1}) Цена: {post['price']}\nАртикул: {post['link']}\n"
+        else:
+            posts_text += f"{n+1}) *Артикул*: {post['link']}\n"
         image_links.append(post['image'])
 
     for image in image_links:
         print(image)
         images.append(InputMediaPhoto(media=image))
     
-    # await bot.send_media_group(chat_id=message.from_user.id, media=images)
-    await message.answer_media_group(images, caption=posts_text, text='Text123')
+    if images:
+        images[0].caption = posts_text + "\n#Wildberries\n" + hashtag
+        images[0].parse_mode = 'Markdown'
 
-
-    # description = "*{title}*\n\n*Цена:* {price}\n\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
-    # await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown') 
+    await message.answer_media_group(media=images)
     await state.clear()
 
 
