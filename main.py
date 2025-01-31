@@ -4,15 +4,15 @@ import asyncio
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import InputMediaPhoto
-from aiogram.client.default import DefaultBotProperties
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from keyboards.keyboard import main_kb, hastags_kb
-from parsing import get_post
+from keyboards.keyboard import main_kb, hastags_kb, another_post_kb, cancel_kb
+from parsing import get_post, fast_get_post
+
 
 
 load_dotenv()
@@ -33,21 +33,34 @@ class Form(StatesGroup):
     give_links = State()
 
 
+async def print_post(link: str, message: types.Message):
+    post = fast_get_post(link)
+
+    if post is None:
+        await message.answer("Нужно чуть-чуть подождать(")
+        post = get_post(link)
+
+    print(post)
+    description = "*{title}*\n\n*Цена:* {price} ₽\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
+    await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown', reply_markup=main_kb(message.from_user.id)) 
+
+
+@dp.message(StateFilter("*"), F.text == "Отмена")  # "*" ловит любое состояние
+async def quit_in_state(message: types.Message, state: FSMContext):
+    print("Обработчик quit вызван (в любом состоянии)")
+    await state.clear()
+    print("Состояние после очистки:", await state.get_state())  # Должно быть None
+    await message.answer('Выбирай, сударыня', reply_markup=main_kb(message.from_user.id))
+
+
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
     await message.answer(text="Привет, Оливка, отправь ссылку с WB и я сделаю тебе пост. Тёма сыр, кстати", reply_markup=main_kb(message.from_user.id))
 
 
-# @dp.message("")
-# async def post_from_message(message: types.Message):
-#     post = get_post(message)
-#     description = "*{title}*\n\n*Цена:* {price}\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
-#     await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown') 
-
-
 @dp.message(F.text == "Одинокий пост")
 async def get_post_alone(message: types.Message, state: FSMContext):
-    await message.answer("Отправь ссылку, красотка:")
+    await message.answer("Отправь ссылку, красотка:", reply_markup=cancel_kb(message.from_user.id))
     await state.set_state(Form.give_link)
 
 
@@ -56,9 +69,7 @@ async def make_post(message: types.Message, state: FSMContext):
     await state.update_data(link=message.text)
     data = await state.get_data()
     print(data['link'])
-    post = get_post(data['link'])
-    description = "*{title}*\n\n*Цена:* {price}\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
-    await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown') 
+    await print_post(data['link'], message)
     await state.clear()
 
 
@@ -66,7 +77,7 @@ async def make_post(message: types.Message, state: FSMContext):
 @dp.message(F.text == "Групповой пост (только артикулы)")
 async def get_title(message: types.Message, state: FSMContext):
     await state.update_data(type_group=message.text)
-    await message.answer("Отправь заголовок, детка")
+    await message.answer("Отправь заголовок, детка", reply_markup=cancel_kb(message.from_user.id))
     await state.set_state(Form.give_title)
 
 
@@ -81,7 +92,7 @@ async def get_hashtag(message: types.Message, state: FSMContext):
 async def get_group_from_posts(message: types.Message, state: FSMContext):
     await state.update_data(hashtag=message.text)
     await state.set_state(Form.give_links)
-    await message.answer("Отправь ссылки, крошка")
+    await message.answer("Отправь ссылки, крошка", reply_markup=cancel_kb(message.from_user.id))
 
 
 @dp.message(Form.give_links)
@@ -102,9 +113,12 @@ async def make_some_posts(message: types.Message, state: FSMContext):
     print(links)
 
     for n, link in enumerate(links):
-        post = get_post(link)
+        post = fast_get_post(link)
+        if post is None:
+            post = get_post(link)
+
         if data['type_group'] == "Групповой пост (целиком)":
-            posts_text += f"{n+1}) Цена: {post['price']}\nАртикул: {post['link']}\n"
+            posts_text += f"{n+1}) *Цена:* {post['price']} ₽\n*Артикул*: {post['link']}\n"
         else:
             posts_text += f"{n+1}) *Артикул*: {post['link']}\n"
         image_links.append(post['image'])
@@ -118,26 +132,19 @@ async def make_some_posts(message: types.Message, state: FSMContext):
         images[0].parse_mode = 'Markdown'
 
     await message.answer_media_group(media=images)
+    await message.answer("Ещё постик?",reply_markup=main_kb(message.from_user.id))
     await state.clear()
 
 
+@dp.message(F.text == 'Сделать ещё пост😊')
+async def redirect_main(message: types.Message, state: FSMContext):
+    await message.answer("Выбирайте, сударыня", reply_markup=main_kb(message.from_user.id))
 
 
-# from aiogram.utils.media_group import MediaGroupBuilder
 
-# @router.message(UploadPostAd.photos)
-# async def process_photos( message: Message, state: FSMContext):
-#     # Process the photos here
-#     if message.photo:
-#         photo_ids = get_all_photo_ids(message)  # Get all photo IDs
-
-#         media_group = MediaGroupBuilder(caption="Media group caption")
-#         for photo in photo_ids:
-#             media_group.add_photo(type="photo", media=photo)
-
-#         await message.answer_media_group(media=media_group.build())
-#         await state.clear()
-
+@dp.message()
+async def echo(message: types.Message):
+    await print_post(message.text, message)
 
     
 async def main():
