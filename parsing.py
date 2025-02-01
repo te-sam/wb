@@ -65,31 +65,57 @@ def fast_get_post(url: str):
         post['link'] = f"[{articul}]({url})"
 
         #Картинка
+        # post['image'] = None   
+        # for i in range(n, 6, -1):
+        #     for count in range(1, 23):  # на еденицу есть косяки
+        #         if count < 10:
+        #             image = f"https://basket-0{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/images/big/1.webp"
+        #         else:
+        #             image = f"https://basket-{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/images/big/1.webp"
+
+        #         response = requests.get(image)
+        #         if response.status_code == 200:
+        #             card_url = f'{image[:-18]}/info/ru/card.json'
+        #             response = requests.get(card_url)
+                    
+                    
+        #             json_data = response.json() 
+        #             get_articul = str(json_data['nm_id'])
+
+        #             print(f'card url = {card_url}')
+        #             print(f'Артикул: {json_data["nm_id"]}')
+        #             print(f'Наш артикул: {articul}\n')
+
+        #             if get_articul == articul:
+        #                 post['image'] = image
+        #                 break
+        #         count += 1
+        #     if post['image']:
+        #         break
+
         post['image'] = None   
         for i in range(n, 6, -1):
             for count in range(1, 23):  # на еденицу есть косяки
                 if count < 10:
-                    image = f"https://basket-0{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/images/big/1.webp"
+                    card = f"https://basket-0{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/info/ru/card.json"
                 else:
-                    image = f"https://basket-{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/images/big/1.webp"
+                    card = f"https://basket-{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/info/ru/card.json"
 
-                response = requests.get(image)
+                response = requests.get(card)
                 if response.status_code == 200:
-                    card_url = f'{image[:-18]}/info/ru/card.json'
-                    response = requests.get(card_url)
-                    
-                    
                     json_data = response.json() 
                     get_articul = str(json_data['nm_id'])
 
-                    print(f'card url = {card_url}')
+                    print(f'card url = {card}')
                     print(f'Артикул: {json_data["nm_id"]}')
                     print(f'Наш артикул: {articul}\n')
 
                     if get_articul == articul:
-                        post['image'] = image
+                        post['image'] = f'{card[:-18]}/images/big/1.webp'
+                        print(post['image'])
                         break
                 count += 1
+
             if post['image']:
                 break
             

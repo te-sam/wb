@@ -100,6 +100,12 @@ async def make_some_posts(message: types.Message, state: FSMContext):
     await state.update_data(links=message.text)
     data = await state.get_data()
     links = data['links'].split()
+
+    if len(links) > 10:
+        await state.update_data(links='')
+        await state.set_state(Form.give_links)
+        await message.answer("Максимум 10 ссылок. Введите новые ссылки, пожалуйста", reply_markup=cancel_kb(message.from_user.id))
+
     posts_text = f"*{data['title']}*\n\n"
     image_links = []
     images = []
