@@ -40,6 +40,10 @@ async def print_post(link: str, message: types.Message):
         await message.answer("Нужно чуть-чуть подождать(")
         post = get_post(link)
 
+    if 'product_title' in post.keys():
+        await message.answer(f'Товара "{post["product_title"]}" нет в наличии')
+        return None
+
     print(post)
     description = "*{title}*\n\n*Цена:* {price} ₽\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
     await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown', reply_markup=main_kb(message.from_user.id)) 
@@ -102,9 +106,8 @@ async def make_some_posts(message: types.Message, state: FSMContext):
     links = data['links'].split()
 
     if len(links) > 10:
-        await state.update_data(links='')
-        await state.set_state(Form.give_links)
-        await message.answer("Максимум 10 ссылок. Введите новые ссылки, пожалуйста", reply_markup=cancel_kb(message.from_user.id))
+        await message.answer("Будут обработаны только первые 10 ссылок", reply_markup=cancel_kb(message.from_user.id))
+        links = links[:10]
 
     posts_text = f"*{data['title']}*\n\n"
     image_links = []
@@ -118,15 +121,23 @@ async def make_some_posts(message: types.Message, state: FSMContext):
     print(data['title'])
     print(links)
 
+    i = 1  # переменная для начала нумерации списка товаров
     for n, link in enumerate(links):
+       
         post = fast_get_post(link)
+
         if post is None:
             post = get_post(link)
 
+        if 'price' not in post.keys():
+            await message.answer(f'Товара "{post["product_title"]}" нет в наличии')
+            i -= 1
+            continue
+
         if data['type_group'] == "Групповой пост (целиком)":
-            posts_text += f"{n+1}) *Цена:* {post['price']} ₽\n*Артикул*: {post['link']}\n"
+            posts_text += f"*{n+i}) Цена:* {post['price']} ₽\n*Артикул*: {post['link']}\n"
         else:
-            posts_text += f"{n+1}) *Артикул*: {post['link']}\n"
+            posts_text += f"*{n+i}) Артикул*: {post['link']}\n"
         image_links.append(post['image'])
 
     for image in image_links:
