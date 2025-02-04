@@ -61,8 +61,8 @@ def fast_get_post(url: str):
             if 'price' in sizes[i].keys():
                 post['price'] = round(json_data['data']['products'][0]['sizes'][i]['price']['product'] / 100)
 
-        if 'price' not in post.keys():
-            return post
+        # if 'price' not in post.keys():
+        #     return post
 
         #Ссылка
         post['link'] = f"[{articul}]({url})"
@@ -70,7 +70,7 @@ def fast_get_post(url: str):
         #Картинка
         post['image'] = None   
         for i in range(n, 6, -1):
-            for count in range(1, 23):  # на еденицу есть косяки
+            for count in range(1, 23):
                 if count < 10:
                     card = f"https://basket-0{count}.wbbasket.ru/vol{articul[:i-5]}/part{articul[:i-3]}/{articul[:i]}/info/ru/card.json"
                 else:

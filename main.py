@@ -1,17 +1,20 @@
 import os
 import asyncio
+from io import BytesIO
 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command, StateFilter
-from aiogram.types import InputMediaPhoto
+from aiogram.types import InputMediaPhoto, BufferedInputFile
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+import requests
 
 from keyboards.keyboard import main_kb, hastags_kb, another_post_kb, cancel_kb
 from parsing import get_post, fast_get_post
+from text import get_images_with_price
 
 
 
@@ -40,12 +43,15 @@ async def print_post(link: str, message: types.Message):
         await message.answer("Нужно чуть-чуть подождать(")
         post = get_post(link)
 
-    if 'product_title' in post.keys():
+    if 'price' not in post.keys():
         await message.answer(f'Товара "{post["product_title"]}" нет в наличии')
         return None
 
     print(post)
     description = "*{title}*\n\n*Цена:* {price} ₽\n*Артикул:* {link}\n\n#Wildberries".format(title=post['product_title'], price=post['price'], link=post['link'])
+    post['image'] = get_images_with_price(post['image'], int(post['price']), position=(600, 100))
+    post['image'] = BufferedInputFile(file=post['image'].getvalue(), filename="image.png")
+    print(f'Картинка - {post["image"]}')
     await bot.send_photo(chat_id=message.from_user.id, photo=post['image'], caption=description, parse_mode='Markdown', reply_markup=main_kb(message.from_user.id)) 
 
 
@@ -142,6 +148,11 @@ async def make_some_posts(message: types.Message, state: FSMContext):
 
     for image in image_links:
         print(image)
+
+        # Для поста с ценами на картинках
+        image = get_images_with_price(image, int(post['price']), position=(600, 100))
+        image = BufferedInputFile(file=image.getvalue(), filename="image.png")
+
         images.append(InputMediaPhoto(media=image))
     
     if images:

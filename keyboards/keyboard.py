@@ -1,6 +1,4 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 def main_kb(user_telegram_id: int):
@@ -20,7 +18,8 @@ def hastags_kb(user_telegram_id: int):
         [KeyboardButton(text="#Одежда@go_wb_girl"), KeyboardButton(text="#Бельё@go_wb_girl")],
         [KeyboardButton(text="#Обувь@go_wb_girl"), KeyboardButton(text="#Украшения@go_wb_girl ")],
         [KeyboardButton(text="#Дом@go_wb_girl"), KeyboardButton(text="#Косметика@go_wb_girl")],
-        [KeyboardButton(text="Без хэштега"), KeyboardButton(text="Отмена")]
+        [KeyboardButton(text="#Хобби@go_wb_girl"), KeyboardButton(text="Без хэштега")],
+        [(KeyboardButton(text="Отмена"))]
     ]
     keyboard_hashtags = ReplyKeyboardMarkup(keyboard=kb_hash, resize_keyboard=True, one_time_keyboard=True)
 
